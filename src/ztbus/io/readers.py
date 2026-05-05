@@ -122,7 +122,7 @@ def read_mission_csv(path: Path, *, sniff_only: bool = False) -> pl.DataFrame:
         df = pl.read_csv(
             path,
             schema_overrides=ZTBUS_SCHEMA,
-            null_values=["-", ""],
+            null_values=["-", "", "NaN"],
             n_rows=n_rows,
             try_parse_dates=False,  # we parse time_iso explicitly below
             ignore_errors=False,  # surface bad rows; do not silently skip
@@ -148,7 +148,7 @@ def read_metadata_csv(path: Path) -> pl.DataFrame:
     if not path.exists():
         logger.warning("Metadata file not found: {}", path)
         return pl.DataFrame()
-    return pl.read_csv(path, null_values=["-", ""], try_parse_dates=True)
+    return pl.read_csv(path, null_values=["-", "", "NaN"], try_parse_dates=True)
 
 
 def discover_missions(raw_dir: Path) -> list[Path]:

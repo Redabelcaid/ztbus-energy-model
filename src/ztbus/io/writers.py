@@ -13,17 +13,19 @@ around 1.0 - 1.5 GB.
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import polars as pl
 from loguru import logger
 
-PARQUET_COMPRESSION = "zstd"
+PARQUET_COMPRESSION: Literal["zstd"] = "zstd"
 PARQUET_COMPRESSION_LEVEL = 3
 PARQUET_ROW_GROUP_SIZE = 100_000  # ~30s of 1Hz data fits in a row group nicely
 
 
-def mission_partition_path(root: Path, *, bus: int, start_utc, mission_id: str) -> Path:
+def mission_partition_path(root: Path, *, bus: int, start_utc: datetime, mission_id: str) -> Path:
     """Compute the on-disk partitioned path for a single mission."""
     return (
         root
@@ -39,7 +41,7 @@ def write_mission_parquet(
     *,
     root: Path,
     bus: int,
-    start_utc,
+    start_utc: datetime,
     mission_id: str,
     overwrite: bool = False,
 ) -> Path:
