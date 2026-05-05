@@ -1,0 +1,126 @@
+# Physical and operational parameters for the HESS lighTram® 19 DC trolley bus.
+# This file is the single source of truth for all model constants and prior bounds.
+#
+# Sources:
+#   [W23] Widmer et al., Sci Data 10:687 (2023)        — ZTBus paper
+#   [B21] Beckers, Paasche, Sundström, TRD 96 (2021)   — strategic BEB model paper
+#   [HESS] HESS lighTram® 19 product datasheet         — vehicle dimensions
+#
+# Convention: every constant has a value, a unit, and a source comment.
+
+vehicle:
+  name: "HESS lighTram® 19 DC"
+  type: trolley_bus
+  articulated: true
+  length_m: 18.7              # [HESS]
+  width_m: 2.55               # [HESS]
+  height_m: 3.4               # [HESS]
+  curb_mass_kg: 19000         # [W23] § Data collection
+  max_passenger_capacity: 160 # [W23] § Data collection
+  avg_passenger_mass_kg: 70   # [B21] uses 70 kg standard
+
+ambient:
+  rho_air_kg_per_m3: 1.225    # standard atmosphere at sea level
+  g_m_per_s2: 9.81
+
+# ----------------------------------------------------------------------------
+# Known constants (NOT optimized; used as-is in the forward model)
+# ----------------------------------------------------------------------------
+known:
+  # Comfort cabin temperature; paper-derived (HVAC paper Widmer 2023, ref [17] of W23)
+  T_comfort_K: 294.15         # 21 °C
+
+  # Drivetrain: combined motor capacity ±320 kW per [W23] § Statistical Analysis
+  # We model this as a hard physical limit, not a parameter to fit.
+  P_motor_max_W: 320000
+
+# ----------------------------------------------------------------------------
+# Parameters to be IDENTIFIED from data (the optimization targets)
+# `init` is a defensible starting point. `bounds` is for the optimizer.
+# `unit` and `source` are mandatory for traceability.
+# ----------------------------------------------------------------------------
+parameters:
+
+  frontal_area_m2:
+    init: 8.0
+    bounds: [7.0, 9.5]
+    unit: "m^2"
+    source: |
+      Geometric estimate from H × W − step recess; HESS lighTram® dimensions [HESS].
+      Beckers et al. [B21] use 8.0 m² for a 12 m bus; a 18.7 m articulated bus
+      shares the same cross-section, so A is bounded around the geometric value.
+
+  drag_coefficient:
+    init: 0.65
+    bounds: [0.55, 0.80]
+    unit: "-"
+    source: |
+      Supervisor's Cd=0.65 (typical city bus); [B21] reports 0.7±0.1.
+      Bounded conservatively; in low-speed urban operation Cd is weakly identifiable.
+
+  rolling_resistance_coefficient:
+    init: 0.008
+    bounds: [0.005, 0.015]
+    unit: "-"
+    source: |
+      [B21] Table 2: 0.007 (China) and 0.008 (Norway). Trolley buses are heavier
+      than diesels so the upper bound is widened slightly.
+
+  efficiency_propulsion:
+    init: 0.85
+    bounds: [0.70, 0.95]
+    unit: "-"
+    source: |
+      Combined motor + inverter + gearbox efficiency at typical urban operating
+      points. [B21] reports 0.85; engineering range 0.70–0.95.
+
+  efficiency_recuperation:
+    init: 0.65
+    bounds: [0.40, 0.85]
+    unit: "-"
+    source: |
+      Effective regen efficiency including grid feedback (these are trolley buses
+      with overhead-line return). [B21] models 0.6–0.7. Bounds widened to allow
+      for grid availability variation.
+
+  hvac_coefficient_kW_per_K:
+    init: 0.5
+    bounds: [0.0, 2.0]
+    unit: "kW/K"
+    source: |
+      Linear approximation of cabin thermal loss above/below T_comfort.
+      Real HVAC is nonlinear (heating > cooling, with deadband); see [W23] ref 17.
+      A linear coefficient is the strategic-model simplification per [B21].
+
+  auxiliary_power_kW:
+    init: 12.0
+    bounds: [5.0, 30.0]
+    unit: "kW"
+    source: |
+      Constant aux load (lights, compressor, low-voltage systems).
+      [W23] reports overall aux 20–30 kW INCLUDING HVAC; here we split: P_aux is
+      the HVAC-independent part, so 12 kW is a defensible mid-range.
+
+# ----------------------------------------------------------------------------
+# Identification strategy hints (consumed by src/ztbus/optim/)
+# ----------------------------------------------------------------------------
+identification:
+  # Which parameters to fit jointly; subsets allow ablations.
+  joint_fit:
+    - frontal_area_m2
+    - drag_coefficient
+    - rolling_resistance_coefficient
+    - efficiency_propulsion
+    - efficiency_recuperation
+    - hvac_coefficient_kW_per_K
+    - auxiliary_power_kW
+
+  # Cross-validation strategy.
+  cv:
+    scheme: by_mission_stratified_by_season   # not random — leakage matters here
+    n_folds: 5
+
+  # Objective and weighting.
+  objective: weighted_mse_power_plus_energy
+  weight_energy: 0.3   # cumulative-energy term anchors the slow drift
+  weight_power: 0.7    # instantaneous-power term anchors the dynamics

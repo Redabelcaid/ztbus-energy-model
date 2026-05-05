@@ -1,0 +1,49 @@
+# ZTBus dataset description, used by the ingest layer for schema validation.
+# Source: Widmer et al., Sci Data 10:687 (2023), Table 1.
+
+dataset:
+  name: ZTBus
+  doi: "10.3929/ethz-b-000626723"
+  buses: [183, 208]
+  filename_pattern: "B{bus}_{start_date}_{start_time}_{end_date}_{end_time}.csv"
+  metadata_file: metaData.csv
+  expected_n_missions: 1409
+  date_range: ["2019-04-01", "2022-12-31"]
+  sampling_period_s: 1.0    # nominal; actual gaps must be measured per mission
+
+# Columns we read from the time-resolved CSVs. Names match the dataset exactly.
+# Columns marked `required: true` cause the mission to be rejected if missing.
+columns:
+  time_iso:                       { dtype: datetime, unit: utc, required: true }
+  time_unix:                      { dtype: int64,    unit: s,   required: true }
+  electric_powerDemand:           { dtype: float32,  unit: W,   required: true }
+  gnss_altitude:                  { dtype: float32,  unit: m,   required: false }
+  gnss_course:                    { dtype: float32,  unit: rad, required: false }
+  gnss_latitude:                  { dtype: float64,  unit: rad, required: false }
+  gnss_longitude:                 { dtype: float64,  unit: rad, required: false }
+  itcs_busRoute:                  { dtype: string,             required: false, na_value: "-" }
+  itcs_numberOfPassengers:        { dtype: float32,            required: false }
+  itcs_stopName:                  { dtype: string,             required: false, na_value: "-" }
+  odometry_articulationAngle:     { dtype: float32,  unit: rad, required: false }
+  odometry_steeringAngle:         { dtype: float32,  unit: rad, required: false }
+  odometry_vehicleSpeed:          { dtype: float32,  unit: m/s, required: true }
+  odometry_wheelSpeed_fl:         { dtype: float32,  unit: m/s, required: false }
+  odometry_wheelSpeed_fr:         { dtype: float32,  unit: m/s, required: false }
+  odometry_wheelSpeed_ml:         { dtype: float32,  unit: m/s, required: false }
+  odometry_wheelSpeed_mr:         { dtype: float32,  unit: m/s, required: false }
+  odometry_wheelSpeed_rl:         { dtype: float32,  unit: m/s, required: false }
+  odometry_wheelSpeed_rr:         { dtype: float32,  unit: m/s, required: false }
+  status_doorIsOpen:              { dtype: int8,     unit: bool, required: false }
+  status_gridIsAvailable:         { dtype: int8,     unit: bool, required: false }
+  temperature_ambient:            { dtype: float32,  unit: K,   required: false }
+  traction_brakePressure:         { dtype: float32,  unit: Pa,  required: false }
+  traction_tractionForce:         { dtype: float32,  unit: N,   required: false }
+
+# Sanity bounds drawn from the ZTBus paper § Statistical Analysis.
+# Used for QC, NOT for clipping during cleaning.
+expected_ranges:
+  odometry_vehicleSpeed:  { min: -1.0,    max: 25.0   }   # m/s; negatives near stops (paper)
+  electric_powerDemand:   { min: -350000, max: 400000 }   # W; ±320 kW motors + ~30 kW aux
+  temperature_ambient:    { min: 250,     max: 320    }   # K
+  itcs_numberOfPassengers:{ min: 0,       max: 200    }   # max capacity ~160
+  gnss_altitude:          { min: 350,     max: 700    }   # m; Zurich is 408m, route range modest

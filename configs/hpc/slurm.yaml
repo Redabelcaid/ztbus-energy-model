@@ -1,0 +1,44 @@
+# SLURM defaults. Override these per cluster in configs/local/slurm.yaml
+# (which is gitignored). Document any non-default cluster choice in
+# docs/hpc_runbook.md.
+
+# Snakemake workflow profile pointer; see configs/hpc/config.yaml for the
+# Snakemake-specific keys.
+
+scheduler: slurm
+
+defaults:
+  partition: "compute"        # CHANGE ME per cluster
+  account: ""                  # set if your cluster uses --account
+  qos: ""
+  time: "02:00:00"
+  nodes: 1
+  ntasks: 1
+  cpus_per_task: 4
+  mem: "8G"
+
+# Per-rule overrides. Keys are Snakemake rule names; see Snakefile.
+per_rule:
+
+  ingest_mission:
+    cpus_per_task: 2
+    mem: "4G"
+    time: "00:30:00"
+
+  clean_mission:
+    cpus_per_task: 2
+    mem: "8G"
+    time: "00:30:00"
+
+  fit_parameters:
+    cpus_per_task: 16          # parameter ID benefits from many cores per worker
+    mem: "32G"
+    time: "06:00:00"
+
+  validate:
+    cpus_per_task: 4
+    mem: "16G"
+    time: "01:00:00"
+
+# How many simultaneous SLURM jobs to allow.
+max_jobs_in_flight: 200

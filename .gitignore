@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+
+# Environments
+.venv/
+venv/
+env/
+.python-version
+uv.lock           # commit on stable releases; gitignored during dev iteration
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_meta
+
+# ----------------------------------------------------------------------------
+# Data — the entire tree is generated, never commit
+# Only commit /data/.gitkeep and /data/README.md
+# On HPC, /data/raw should be a symlink to scratch space
+# ----------------------------------------------------------------------------
+data/raw/*
+!data/raw/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/reports/*
+!data/reports/.gitkeep
+*.csv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+
+# Logs
+logs/
+*.log
+slurm-*.out
+slurm-*.err
+
+# Snakemake
+.snakemake/
+
+# Local config overrides
+configs/local/
+.env
+.env.*
+!.env.example

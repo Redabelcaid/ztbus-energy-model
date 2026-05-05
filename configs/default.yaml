@@ -1,0 +1,22 @@
+# Top-level default config.
+# Override via environment variables (ZTBUS_* prefix) or by passing --config-name.
+
+defaults:
+  data: ztbus
+  physics: hess_lightram_19
+  cleaning: v1
+  hpc: slurm
+
+paths:
+  raw: ${oc.env:ZTBUS_RAW_DIR,${root}/data/raw}
+  interim: ${oc.env:ZTBUS_INTERIM_DIR,${root}/data/interim}
+  processed: ${oc.env:ZTBUS_PROCESSED_DIR,${root}/data/processed}
+  reports: ${oc.env:ZTBUS_REPORTS_DIR,${root}/data/reports}
+
+logging:
+  level: INFO
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}"
+
+run:
+  seed: 20260101
+  n_workers: 8

@@ -1,0 +1,92 @@
+# Cleaning policy v1. All thresholds live here, NOT in code.
+# Each choice has a one-line justification anchored to the dataset paper or to
+# the needs of the parameter-identification problem.
+
+policy_version: "v1"
+
+timestamps:
+  # Reject mission outright if any of these are detected.
+  reject_on_duplicate_timestamps: false   # dedupe instead, keep first
+  reject_on_non_monotonic_time: true      # data corruption signal
+  max_internal_gap_s: 10                  # consistent with [W23] selection criterion
+
+speed:
+  # The dataset paper acknowledges slightly negative speeds near stops; do NOT
+  # reject negatives, but clamp small negatives to zero and FLAG large ones.
+  small_negative_threshold_mps: -0.2
+  hard_negative_action: flag              # do not silently overwrite
+  upper_plausibility_mps: 25.0            # ~90 km/h; rare for urban trolley
+  smoothing:
+    method: rolling_median_then_mean
+    window_seconds: 3                     # match the typical sampling rate
+    use_smoothed_for_derivative: true
+
+power:
+  # Per [W23], motor capacity is ±320 kW; auxiliaries add ~20–30 kW.
+  # Beyond ±450 kW is physically implausible and indicates a CAN spike.
+  hard_lower_W: -450000
+  hard_upper_W:  500000
+  on_violation: flag                      # never silently clip
+  preserve_negative_for_regen: true
+
+acceleration:
+  # Derived AFTER smoothing speed. Don't pre-clip; flag.
+  plausibility_bounds_mps2: [-3.0, 3.0]   # standing-passenger comfort bound
+  on_violation: flag
+
+altitude:
+  source: gnss_altitude
+  short_gap_max_s: 10                     # interpolate
+  long_gap_action: leave_nan              # do NOT invent topology
+  smoothing:
+    method: rolling_median
+    window_seconds: 30                    # GNSS altitude is the noisiest signal
+
+grade:
+  derivation: dh_over_ds_from_smoothed
+  smooth_after_derive: true
+  smoothing_window_seconds: 30
+  plausibility_bounds: [-0.12, 0.12]      # ±12 % is generous for Zurich urban routes
+  on_violation: flag
+
+temperature:
+  unit_in_dataset: K
+  store_as: K                             # convert to °C only at presentation layer
+  short_gap_max_s: 60                     # slow-changing, safe to interpolate
+  plausibility_bounds_K: [243, 323]       # −30 °C to +50 °C; Zurich climate envelope
+
+passengers:
+  source: itcs_numberOfPassengers
+  na_handling: forward_fill_then_zero     # passenger count changes at stops, not every second
+  hard_lower: 0
+  hard_upper: 200
+
+binary_signals:
+  # status_doorIsOpen, status_gridIsAvailable
+  resampling: previous_neighbor           # piecewise-constant, per [W23]
+  na_handling: leave_nan                  # do not assume a default state
+
+gnss_coordinates:
+  # Critical: do NOT interpolate latitude/longitude across long gaps. The bus
+  # might have gone through a tunnel; inventing a straight line creates a fake
+  # trajectory that downstream map-matching will treat as truth.
+  short_gap_max_s: 5
+  long_gap_action: leave_nan
+  course_handling:
+    bus_183: hold_last_value_when_stationary    # per [W23]
+    bus_208: zero_when_stationary               # per [W23]
+  use_for_grade: true
+
+depot_detection:
+  # Drives that start/end inside the bus depot generate dynamics that the model
+  # should not see: idle warm-up, low-speed maneuvering, charging spikes.
+  # We detect and trim them BEFORE feeding to the parameter fit.
+  enabled: true
+  method: stationary_at_known_depot_polygon  # implemented in src/ztbus/routes/depot.py
+
+derived_signals:
+  energy_integration_method: trapezoid       # NOT cumsum — handles non-uniform dt
+  distance_integration_method: trapezoid
+  cumulative_quantities:
+    - energy_kWh
+    - distance_m
