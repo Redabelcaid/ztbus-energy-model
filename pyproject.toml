@@ -108,11 +108,26 @@ select = [
 ignore = [
     "PLR0913",         # too many arguments — common in physics functions
     "PLR2004",         # magic value comparison — physics constants are fine
+    "RUF002",          # ambiguous unicode in docstrings — we use ° × − legitimately in physics
+    "RUF003",          # ditto for comments
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["PLR2004", "S101"]
-"notebooks/*" = ["E402", "F401"]
+# Physics modules use uppercase variable names matching the literature
+# (P_mech, F_aero, T, R, etc.). These are NOT style violations — they are the
+# notation used in Beckers et al. (2021) and the broader vehicle dynamics
+# literature. Renaming them to lowercase would harm readability.
+"src/ztbus/physics/*"   = ["N802", "N803", "N806", "N815"]
+"src/ztbus/features/*"  = ["N802", "N803", "N806", "N815"]
+"src/ztbus/cleaning/*"  = ["N802", "N803", "N806", "N815"]
+"src/ztbus/routes/*"    = ["N802", "N803", "N806", "N815"]
+"src/ztbus/qc/*"        = ["N802", "N803", "N806", "N815"]
+# CLI uses the standard Typer pattern (typer.Option in defaults) and lazy
+# imports for fast --help responsiveness. Both are idiomatic, not bugs.
+"src/ztbus/cli.py"      = ["B008", "PLC0415"]
+"scripts/*"             = ["PLC0415"]
+"tests/*"               = ["PLR2004", "S101", "N806", "N803", "PLC0415"]
+"notebooks/*"           = ["E402", "F401"]
 
 [tool.ruff.format]
 quote-style = "double"

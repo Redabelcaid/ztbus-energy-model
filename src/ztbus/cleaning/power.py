@@ -25,9 +25,8 @@ def clean_power(df: pl.DataFrame, cfg: PowerConfig) -> pl.DataFrame:
         return df
 
     df = df.with_columns(
-        (
-            (pl.col(RAW_COL) < cfg.hard_lower_W)
-            | (pl.col(RAW_COL) > cfg.hard_upper_W)
-        ).alias("power_outlier_flag"),
+        ((pl.col(RAW_COL) < cfg.hard_lower_W) | (pl.col(RAW_COL) > cfg.hard_upper_W)).alias(
+            "power_outlier_flag"
+        ),
     )
     return df

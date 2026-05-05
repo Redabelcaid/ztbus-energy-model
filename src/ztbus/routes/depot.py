@@ -35,9 +35,9 @@ from loguru import logger
 # Approximate depot polygon centers (radians for compatibility with raw GNSS).
 # The dataset stores lat/lon in radians per the ZTBus paper Table 1.
 KNOWN_DEPOTS_DEG: list[tuple[str, float, float]] = [
-    ("Hardau",     47.385, 8.512),
+    ("Hardau", 47.385, 8.512),
     ("Kalkbreite", 47.376, 8.519),
-    ("Oerlikon",   47.412, 8.546),
+    ("Oerlikon", 47.412, 8.546),
 ]
 
 
@@ -49,8 +49,9 @@ class DepotDetectionResult:
     detected_depot_at_end: str | None
 
 
-def _haversine_km(lat1_rad: np.ndarray, lon1_rad: np.ndarray,
-                  lat2_rad: float, lon2_rad: float) -> np.ndarray:
+def _haversine_km(
+    lat1_rad: np.ndarray, lon1_rad: np.ndarray, lat2_rad: float, lon2_rad: float
+) -> np.ndarray:
     """Great-circle distance in km between arrays of points and a single point."""
     R = 6371.0088
     dlat = lat2_rad - lat1_rad
@@ -75,14 +76,22 @@ def detect_depot_phases(
     in_depot = np.zeros(n, dtype=bool)
 
     if n == 0 or "gnss_latitude" not in df.columns:
-        return df.with_columns(pl.Series("in_depot", in_depot)), DepotDetectionResult(0, 0, None, None)
+        return df.with_columns(pl.Series("in_depot", in_depot)), DepotDetectionResult(
+            0, 0, None, None
+        )
 
     lat = df["gnss_latitude"].to_numpy().astype(float)
     lon = df["gnss_longitude"].to_numpy().astype(float)
-    t = df["time_unix"].to_numpy().astype(float) if "time_unix" in df.columns else np.arange(n, dtype=float)
+    t = (
+        df["time_unix"].to_numpy().astype(float)
+        if "time_unix" in df.columns
+        else np.arange(n, dtype=float)
+    )
     v = df[speed_col].to_numpy().astype(float) if speed_col in df.columns else np.zeros(n)
 
-    detected_start = _detect_endpoint_depot(lat, lon, v, t, depot_radius_km, min_dwell_seconds, "start")
+    detected_start = _detect_endpoint_depot(
+        lat, lon, v, t, depot_radius_km, min_dwell_seconds, "start"
+    )
     detected_end = _detect_endpoint_depot(lat, lon, v, t, depot_radius_km, min_dwell_seconds, "end")
 
     n_start = 0
@@ -90,7 +99,7 @@ def detect_depot_phases(
 
     if detected_start is not None:
         # Mark consecutive samples from start that remain inside the depot polygon.
-        depot_name, depot_lat_rad, depot_lon_rad = detected_start
+        _, depot_lat_rad, depot_lon_rad = detected_start
         d_km = _haversine_km(lat, lon, depot_lat_rad, depot_lon_rad)
         for i in range(n):
             if np.isfinite(d_km[i]) and d_km[i] <= depot_radius_km and v[i] < 3.0:
@@ -100,7 +109,7 @@ def detect_depot_phases(
                 break
 
     if detected_end is not None:
-        depot_name, depot_lat_rad, depot_lon_rad = detected_end
+        _depot_name, depot_lat_rad, depot_lon_rad = detected_end
         d_km = _haversine_km(lat, lon, depot_lat_rad, depot_lon_rad)
         for i in range(n - 1, -1, -1):
             if np.isfinite(d_km[i]) and d_km[i] <= depot_radius_km and v[i] < 3.0:
@@ -124,8 +133,13 @@ def detect_depot_phases(
 
 
 def _detect_endpoint_depot(
-    lat: np.ndarray, lon: np.ndarray, v: np.ndarray, t: np.ndarray,
-    radius_km: float, min_dwell_s: float, where: str,
+    lat: np.ndarray,
+    lon: np.ndarray,
+    v: np.ndarray,
+    t: np.ndarray,
+    radius_km: float,
+    min_dwell_s: float,
+    where: str,
 ) -> tuple[str, float, float] | None:
     """Check whether the start/end of a mission is inside a known depot."""
     if where == "start":

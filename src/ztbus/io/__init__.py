@@ -1,9 +1,9 @@
 """I/O layer: schema-aware readers and partitioned Parquet writers."""
 
 from ztbus.io.readers import (
-    MissionFileError,
     REQUIRED_COLUMNS,
     ZTBUS_SCHEMA,
+    MissionFileError,
     discover_missions,
     parse_mission_filename,
     read_metadata_csv,
@@ -15,9 +15,9 @@ from ztbus.io.writers import (
 )
 
 __all__ = [
-    "MissionFileError",
     "REQUIRED_COLUMNS",
     "ZTBUS_SCHEMA",
+    "MissionFileError",
     "discover_missions",
     "mission_partition_path",
     "parse_mission_filename",

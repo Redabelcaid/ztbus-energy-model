@@ -54,7 +54,9 @@ def _interpolate_short_gaps(df: pl.DataFrame, col: str, short_gap_max_s: float) 
         t = np.arange(df.height, dtype=float)
 
     out = raw_np.copy()
-    is_null = np.array([v is None or (isinstance(v, float) and np.isnan(v)) for v in raw_np.tolist()])
+    is_null = np.array(
+        [v is None or (isinstance(v, float) and np.isnan(v)) for v in raw_np.tolist()]
+    )
 
     in_run = False
     run_start = 0
@@ -80,7 +82,9 @@ def _annotate_course_validity(df: pl.DataFrame, cfg: GNSSConfig, *, bus: int) ->
     if COURSE_COL not in df.columns:
         return df.with_columns(pl.lit(False).alias("gnss_course_valid"))
 
-    speed_col = "speed_smoothed_mps" if "speed_smoothed_mps" in df.columns else "odometry_vehicleSpeed"
+    speed_col = (
+        "speed_smoothed_mps" if "speed_smoothed_mps" in df.columns else "odometry_vehicleSpeed"
+    )
     if speed_col not in df.columns:
         return df.with_columns(pl.lit(True).alias("gnss_course_valid"))
 
@@ -93,7 +97,9 @@ def _annotate_course_validity(df: pl.DataFrame, cfg: GNSSConfig, *, bus: int) ->
         # Course set to zero when stationary; valid only while moving
         valid = moving & (pl.col(COURSE_COL) != 0.0)
     else:
-        logger.warning("Unknown bus number {}; conservatively treating course as valid only while moving", bus)
+        logger.warning(
+            "Unknown bus number {}; conservatively treating course as valid only while moving", bus
+        )
         valid = moving
 
     return df.with_columns(valid.alias("gnss_course_valid"))

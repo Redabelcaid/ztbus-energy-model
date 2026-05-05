@@ -28,7 +28,6 @@ from loguru import logger
 from ztbus.cleaning.altitude import clean_altitude
 from ztbus.cleaning.config import CleaningConfig
 from ztbus.cleaning.gnss import clean_gnss
-from ztbus.cleaning.grade import derive_grade
 from ztbus.cleaning.power import clean_power
 from ztbus.cleaning.speed import clean_speed
 from ztbus.cleaning.temperature import clean_temperature

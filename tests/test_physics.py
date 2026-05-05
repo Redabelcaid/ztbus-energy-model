@@ -81,14 +81,18 @@ def test_cruise_energy_in_expected_range(cruise: dict) -> None:
 def test_uniform_acceleration_dominates_at_low_speed(t_one_hz: np.ndarray) -> None:
     """At low speed and high acceleration, F_inertia should dominate over F_aero."""
     n = t_one_hz.size
-    a = np.full(n, 1.0)        # 1 m/s² acceleration
+    a = np.full(n, 1.0)  # 1 m/s² acceleration
     v = np.minimum(a * t_one_hz, 10.0)  # ramp up, cap at 10 m/s
 
     sim_decel = simulate_powertrain(
-        time_s=t_one_hz, speed_mps=v, acceleration_mps2=a,
+        time_s=t_one_hz,
+        speed_mps=v,
+        acceleration_mps2=a,
     )
     sim_no_decel = simulate_powertrain(
-        time_s=t_one_hz, speed_mps=v, acceleration_mps2=np.zeros(n),
+        time_s=t_one_hz,
+        speed_mps=v,
+        acceleration_mps2=np.zeros(n),
     )
     # Accelerating costs more than coasting at the same speed
     assert sim_decel.energy_total_kWh[-1] > sim_no_decel.energy_total_kWh[-1]
@@ -98,7 +102,7 @@ def test_recuperation_recovers_energy_on_braking(t_one_hz: np.ndarray) -> None:
     """Negative mechanical power must be processed via the recuperation path."""
     n = t_one_hz.size
     v = np.full(n, 5.0)
-    a = np.full(n, -0.5)    # braking
+    a = np.full(n, -0.5)  # braking
     sim = simulate_powertrain(time_s=t_one_hz, speed_mps=v, acceleration_mps2=a)
     # Mechanical power is negative; electric power should be |P_mech| * η_recup,
     # which is smaller in magnitude than P_mech itself.

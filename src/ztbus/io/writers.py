@@ -20,7 +20,7 @@ from loguru import logger
 
 PARQUET_COMPRESSION = "zstd"
 PARQUET_COMPRESSION_LEVEL = 3
-PARQUET_ROW_GROUP_SIZE = 100_000   # ~30s of 1Hz data fits in a row group nicely
+PARQUET_ROW_GROUP_SIZE = 100_000  # ~30s of 1Hz data fits in a row group nicely
 
 
 def mission_partition_path(root: Path, *, bus: int, start_utc, mission_id: str) -> Path:

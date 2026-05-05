@@ -31,7 +31,7 @@ def clean_altitude(df: pl.DataFrame, cfg: AltitudeConfig) -> pl.DataFrame:
     if RAW_COL not in df.columns:
         return df
 
-    window = max(5, int(round(cfg.smoothing.window_seconds)))
+    window = max(5, round(cfg.smoothing.window_seconds))
     if window % 2 == 0:
         window += 1
 
@@ -51,8 +51,8 @@ def clean_altitude(df: pl.DataFrame, cfg: AltitudeConfig) -> pl.DataFrame:
     # Rolling median for smoothing
     df = df.with_columns(
         pl.col(SMOOTHED_COL + "_pre")
-            .rolling_median(window_size=window, min_samples=1, center=True)
-            .alias(SMOOTHED_COL)
+        .rolling_median(window_size=window, min_samples=1, center=True)
+        .alias(SMOOTHED_COL)
     ).drop(SMOOTHED_COL + "_pre")
 
     return df

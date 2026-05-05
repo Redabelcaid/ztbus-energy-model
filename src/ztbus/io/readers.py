@@ -16,7 +16,7 @@ can be swapped independently.
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 
@@ -35,7 +35,7 @@ _FILENAME_RE: Final = re.compile(
 # Schema as defined in the ZTBus paper (Table 1)
 # ----------------------------------------------------------------------------
 ZTBUS_SCHEMA: Final[dict[str, pl.DataType]] = {
-    "time_iso": pl.Utf8,                            # parsed to Datetime separately
+    "time_iso": pl.Utf8,  # parsed to Datetime separately
     "time_unix": pl.Int64,
     "electric_powerDemand": pl.Float32,
     "gnss_altitude": pl.Float32,
@@ -61,12 +61,14 @@ ZTBUS_SCHEMA: Final[dict[str, pl.DataType]] = {
     "traction_tractionForce": pl.Float32,
 }
 
-REQUIRED_COLUMNS: Final = frozenset({
-    "time_iso",
-    "time_unix",
-    "electric_powerDemand",
-    "odometry_vehicleSpeed",
-})
+REQUIRED_COLUMNS: Final = frozenset(
+    {
+        "time_iso",
+        "time_unix",
+        "electric_powerDemand",
+        "odometry_vehicleSpeed",
+    }
+)
 
 
 class MissionFileError(ValueError):
@@ -85,11 +87,11 @@ def parse_mission_filename(path: Path) -> dict[str, str | int | datetime]:
     start_utc = datetime.strptime(
         f"{m['start_date']} {m['start_time'].replace('-', ':')}",
         "%Y-%m-%d %H:%M:%S",
-    ).replace(tzinfo=timezone.utc)
+    ).replace(tzinfo=UTC)
     end_utc = datetime.strptime(
         f"{m['end_date']} {m['end_time'].replace('-', ':')}",
         "%Y-%m-%d %H:%M:%S",
-    ).replace(tzinfo=timezone.utc)
+    ).replace(tzinfo=UTC)
 
     return {
         "bus": int(m["bus"]),
@@ -122,8 +124,8 @@ def read_mission_csv(path: Path, *, sniff_only: bool = False) -> pl.DataFrame:
             schema_overrides=ZTBUS_SCHEMA,
             null_values=["-", ""],
             n_rows=n_rows,
-            try_parse_dates=False,    # we parse time_iso explicitly below
-            ignore_errors=False,      # surface bad rows; do not silently skip
+            try_parse_dates=False,  # we parse time_iso explicitly below
+            ignore_errors=False,  # surface bad rows; do not silently skip
         )
     except Exception as exc:
         raise MissionFileError(f"Failed to read {path.name}: {exc}") from exc

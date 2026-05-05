@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import polars as pl
@@ -15,8 +15,8 @@ def test_parse_mission_filename_canonical() -> None:
     p = Path("B183_2019-10-16_02-52-43_2019-10-16_07-10-12.csv")
     meta = parse_mission_filename(p)
     assert meta["bus"] == 183
-    assert meta["start_utc"] == datetime(2019, 10, 16, 2, 52, 43, tzinfo=timezone.utc)
-    assert meta["end_utc"] == datetime(2019, 10, 16, 7, 10, 12, tzinfo=timezone.utc)
+    assert meta["start_utc"] == datetime(2019, 10, 16, 2, 52, 43, tzinfo=UTC)
+    assert meta["end_utc"] == datetime(2019, 10, 16, 7, 10, 12, tzinfo=UTC)
     assert meta["mission_id"] == p.stem
 
 
@@ -42,7 +42,7 @@ def test_read_mission_csv_minimal(tmp_path: Path) -> None:
 def test_read_mission_csv_missing_required_column_raises(tmp_path: Path) -> None:
     csv = tmp_path / "B183_2020-01-01_00-00-00_2020-01-01_00-00-02.csv"
     csv.write_text(
-        "time_iso,time_unix,electric_powerDemand\n"     # missing odometry_vehicleSpeed
+        "time_iso,time_unix,electric_powerDemand\n"  # missing odometry_vehicleSpeed
         "2020-01-01T00:00:00+00:00,1577836800,12345.0\n"
     )
     with pytest.raises(MissionFileError, match="missing required columns"):

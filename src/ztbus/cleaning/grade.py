@@ -26,7 +26,7 @@ import polars as pl
 from ztbus.cleaning.config import GradeConfig
 
 ALT_COL = "altitude_smoothed_m"
-DIST_COL = "distance_m"   # produced by features.kinematics
+DIST_COL = "distance_m"  # produced by features.kinematics
 OUT_COL = "grade"
 
 
@@ -50,7 +50,7 @@ def derive_grade(df: pl.DataFrame, cfg: GradeConfig) -> pl.DataFrame:
 
     # Smooth the grade time series (rolling median)
     if cfg.smooth_after_derive and np.isfinite(grade).any():
-        window = max(5, int(round(cfg.smoothing_window_seconds)))
+        window = max(5, round(cfg.smoothing_window_seconds))
         if window % 2 == 0:
             window += 1
         grade = _rolling_median_nan_aware(grade, window)

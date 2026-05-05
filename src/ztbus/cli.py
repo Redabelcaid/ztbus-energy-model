@@ -26,9 +26,12 @@ _console = Console()
 
 def _configure_logging(level: str) -> None:
     logger.remove()
-    logger.add(sys.stderr, level=level.upper(),
-               format="<green>{time:HH:mm:ss}</green> | <level>{level: <7}</level> | "
-                      "<cyan>{name}</cyan>:<cyan>{function}</cyan> - {message}")
+    logger.add(
+        sys.stderr,
+        level=level.upper(),
+        format="<green>{time:HH:mm:ss}</green> | <level>{level: <7}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan> - {message}",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +67,9 @@ def ingest(
         raise typer.Exit(2)
 
     # Defer the heavy import so `--help` is fast
-    from ztbus.io import discover_missions, parse_mission_filename, read_mission_csv, write_mission_parquet
+    from ztbus.io import (
+        discover_missions,
+    )
 
     missions = discover_missions(raw_dir)
     logger.info("Ingesting {} missions → {}", len(missions), interim_dir)
@@ -163,11 +168,17 @@ def clean(
         gate_values = {f"gate_{r.name}_value": r.value for r in gates}
 
         df.write_parquet(out_path, compression="zstd", compression_level=3, statistics=True)
-        qc_rows.append({**qc.as_dict(), **gate_dict, **gate_values,
-                        "depot_n_start": depot.n_rows_start_depot,
-                        "depot_n_end": depot.n_rows_end_depot,
-                        "depot_at_start": depot.detected_depot_at_start,
-                        "depot_at_end": depot.detected_depot_at_end})
+        qc_rows.append(
+            {
+                **qc.as_dict(),
+                **gate_dict,
+                **gate_values,
+                "depot_n_start": depot.n_rows_start_depot,
+                "depot_n_end": depot.n_rows_end_depot,
+                "depot_at_start": depot.detected_depot_at_start,
+                "depot_at_end": depot.detected_depot_at_end,
+            }
+        )
 
     qc_df = pl.DataFrame(qc_rows)
     qc_out = processed_dir / "_qc_summary.parquet"
@@ -188,6 +199,7 @@ def profile(
     """Profile every interim mission: per-mission stats for EDA."""
     _configure_logging(log_level)
     from ztbus.eda import profile_corpus
+
     profile_corpus(interim_dir, out_path=out)
 
 
@@ -213,6 +225,7 @@ def fit(
 def version() -> None:
     """Print package version."""
     from ztbus import __version__
+
     _console.print(f"ztbus-energy-model [bold]{__version__}[/bold]")
 
 

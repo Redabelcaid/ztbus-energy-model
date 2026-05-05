@@ -11,8 +11,8 @@ threshold.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import polars as pl
 
@@ -59,7 +59,9 @@ def gate_no_critical_gap(df: pl.DataFrame, *, max_gap_s: float = 10.0) -> GateRe
     )
 
 
-def gate_energy_intensity_in_range(df: pl.DataFrame, *, lo: float = 0.8, hi: float = 3.0) -> GateResult:
+def gate_energy_intensity_in_range(
+    df: pl.DataFrame, *, lo: float = 0.8, hi: float = 3.0
+) -> GateResult:
     """Mission-mean kWh/km should land near the paper's 1.5–2.0 range.
 
     Bounds widened (0.8–3.0) to allow for outliers (very short missions,

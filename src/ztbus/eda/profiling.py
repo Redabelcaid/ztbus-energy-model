@@ -21,34 +21,38 @@ def profile_mission(lf: pl.LazyFrame, mission_id: str, bus: int) -> dict:
     Uses lazy evaluation so the file is read once. The output is a
     self-describing dict that downstream code can collect into a DataFrame.
     """
-    aggs = lf.select(
-        # Row counts and time
-        pl.len().alias("n_rows"),
-        pl.col("time_unix").min().alias("t_start_unix"),
-        pl.col("time_unix").max().alias("t_end_unix"),
-        # Power
-        pl.col("electric_powerDemand").mean().alias("power_mean_W"),
-        pl.col("electric_powerDemand").min().alias("power_min_W"),
-        pl.col("electric_powerDemand").max().alias("power_max_W"),
-        pl.col("electric_powerDemand").std().alias("power_std_W"),
-        (pl.col("electric_powerDemand") < 0).mean().alias("frac_regen"),
-        # Speed
-        pl.col("odometry_vehicleSpeed").mean().alias("speed_mean_mps"),
-        pl.col("odometry_vehicleSpeed").max().alias("speed_max_mps"),
-        (pl.col("odometry_vehicleSpeed") < 0).sum().alias("n_negative_speed"),
-        (pl.col("odometry_vehicleSpeed") > 25).sum().alias("n_speed_over_25"),
-        # Temperature
-        pl.col("temperature_ambient").mean().alias("temperature_mean_K"),
-        pl.col("temperature_ambient").null_count().alias("temperature_n_null"),
-        # Passengers
-        pl.col("itcs_numberOfPassengers").mean().alias("passengers_mean"),
-        pl.col("itcs_numberOfPassengers").max().alias("passengers_max"),
-        # GNSS
-        pl.col("gnss_altitude").null_count().alias("altitude_n_null"),
-        pl.col("gnss_latitude").null_count().alias("gnss_n_null"),
-        # Routes
-        pl.col("itcs_busRoute").drop_nulls().n_unique().alias("n_distinct_routes"),
-    ).collect().to_dicts()[0]
+    aggs = (
+        lf.select(
+            # Row counts and time
+            pl.len().alias("n_rows"),
+            pl.col("time_unix").min().alias("t_start_unix"),
+            pl.col("time_unix").max().alias("t_end_unix"),
+            # Power
+            pl.col("electric_powerDemand").mean().alias("power_mean_W"),
+            pl.col("electric_powerDemand").min().alias("power_min_W"),
+            pl.col("electric_powerDemand").max().alias("power_max_W"),
+            pl.col("electric_powerDemand").std().alias("power_std_W"),
+            (pl.col("electric_powerDemand") < 0).mean().alias("frac_regen"),
+            # Speed
+            pl.col("odometry_vehicleSpeed").mean().alias("speed_mean_mps"),
+            pl.col("odometry_vehicleSpeed").max().alias("speed_max_mps"),
+            (pl.col("odometry_vehicleSpeed") < 0).sum().alias("n_negative_speed"),
+            (pl.col("odometry_vehicleSpeed") > 25).sum().alias("n_speed_over_25"),
+            # Temperature
+            pl.col("temperature_ambient").mean().alias("temperature_mean_K"),
+            pl.col("temperature_ambient").null_count().alias("temperature_n_null"),
+            # Passengers
+            pl.col("itcs_numberOfPassengers").mean().alias("passengers_mean"),
+            pl.col("itcs_numberOfPassengers").max().alias("passengers_max"),
+            # GNSS
+            pl.col("gnss_altitude").null_count().alias("altitude_n_null"),
+            pl.col("gnss_latitude").null_count().alias("gnss_n_null"),
+            # Routes
+            pl.col("itcs_busRoute").drop_nulls().n_unique().alias("n_distinct_routes"),
+        )
+        .collect()
+        .to_dicts()[0]
+    )
 
     aggs["mission_id"] = mission_id
     aggs["bus"] = bus

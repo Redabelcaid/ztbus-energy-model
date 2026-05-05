@@ -57,12 +57,12 @@ class PowertrainSimulation:
     All arrays have the same length as the input time vector.
     """
 
-    power_total_W: ArrayF       # what we compare against electric_powerDemand
-    power_mech_W: ArrayF        # diagnostic: F_total · v
-    power_elec_W: ArrayF        # diagnostic: after η_prop / η_recup split
-    power_hvac_W: ArrayF        # diagnostic
-    power_aux_W: ArrayF         # diagnostic
-    energy_total_kWh: ArrayF    # cumulative, trapezoidal
+    power_total_W: ArrayF  # what we compare against electric_powerDemand
+    power_mech_W: ArrayF  # diagnostic: F_total · v
+    power_elec_W: ArrayF  # diagnostic: after η_prop / η_recup split
+    power_hvac_W: ArrayF  # diagnostic
+    power_aux_W: ArrayF  # diagnostic
+    energy_total_kWh: ArrayF  # cumulative, trapezoidal
 
 
 def _resolve_mass(
@@ -73,7 +73,10 @@ def _resolve_mass(
     """Return per-sample vehicle mass [kg]."""
     if passengers is None:
         return np.full(n, constants.curb_mass_kg, dtype=float)
-    return constants.curb_mass_kg + np.asarray(passengers, dtype=float) * constants.avg_passenger_mass_kg
+    return (
+        constants.curb_mass_kg
+        + np.asarray(passengers, dtype=float) * constants.avg_passenger_mass_kg
+    )
 
 
 def _resolve_grade(
@@ -157,12 +160,22 @@ def simulate_powertrain(
     if not (v.size == a.size == n):
         raise ValueError("time_s, speed_mps, acceleration_mps2 must be the same length")
 
-    m = np.asarray(mass_kg, dtype=float) if mass_kg is not None else _resolve_mass(n, passengers, constants)
+    m = (
+        np.asarray(mass_kg, dtype=float)
+        if mass_kg is not None
+        else _resolve_mass(n, passengers, constants)
+    )
     theta = _resolve_grade(grade, elevation_m, distance_m)
 
     # ---------------- Forces ------------------------------------------------
     F_roll = m * constants.g_m_per_s2 * parameters.rolling_resistance_coefficient
-    F_aero = 0.5 * constants.rho_air_kg_per_m3 * parameters.drag_coefficient * parameters.frontal_area_m2 * v**2
+    F_aero = (
+        0.5
+        * constants.rho_air_kg_per_m3
+        * parameters.drag_coefficient
+        * parameters.frontal_area_m2
+        * v**2
+    )
     F_inertia = m * a
     F_grade = m * constants.g_m_per_s2 * theta
     F_total = F_roll + F_aero + F_inertia + F_grade
@@ -191,7 +204,9 @@ def simulate_powertrain(
 
     # ---------------- Energy: trapezoid on actual time grid ----------------
     if n >= 2:
-        energy_J = np.concatenate([[0.0], np.cumsum(0.5 * (P_total[1:] + P_total[:-1]) * np.diff(t))])
+        energy_J = np.concatenate(
+            [[0.0], np.cumsum(0.5 * (P_total[1:] + P_total[:-1]) * np.diff(t))]
+        )
     else:
         energy_J = np.zeros(n, dtype=float)
     energy_kWh = energy_J / 3.6e6
