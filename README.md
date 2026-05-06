@@ -15,13 +15,6 @@ TRD 2021](https://doi.org/10.1016/j.trd.2021.102776). The reference forward mode
 the supervisor's `updated_energy_calculation.py`, refactored into `src/ztbus/physics/`
 and extended with the unknowns made into a typed parameter object.
 
-## What this project is not
-
-It is not a generic data-cleaning exercise. Cleaning choices are subordinated to the
-needs of the parameter-identification problem: signals that enter the dynamic model
-(speed, acceleration, grade, mass, ambient temperature) get the most careful treatment;
-signals that don't (`gnss_course` while stationary, articulation angle, etc.) are
-preserved as-is for downstream studies but are not on the critical path.
 
 ## Status
 
@@ -64,9 +57,9 @@ See `docs/architecture.md` — kept in sync with the actual tree.
 
 ## Relation to prior work
 
-The previous semester's exploratory scripts and PDFs live in `legacy/`, untouched, with
+The previous exploratory scripts and PDFs live in `legacy/`, untouched, with
 a `legacy/README.md` explaining what was kept and what was replaced. None of that code
-is on the import path of the current pipeline.
+is on the import path of the current pipeline, still pending in the tasks to be done.
 
 ## References
 
