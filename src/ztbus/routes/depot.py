@@ -35,9 +35,14 @@ from loguru import logger
 # Approximate depot polygon centers (radians for compatibility with raw GNSS).
 # The dataset stores lat/lon in radians per the ZTBus paper Table 1.
 KNOWN_DEPOTS_DEG: list[tuple[str, float, float]] = [
-    ("Hardau", 47.385, 8.512),
-    ("Kalkbreite", 47.376, 8.519),
-    ("Oerlikon", 47.412, 8.546),
+    # Derived from the data: 50m-bin histogram + connected components on stationary
+    # positions across the full 1409-mission corpus. See
+    # /scratch/users/rbelcaid/ztbus/reports/derived_depots.json for the full output.
+    ("Depot_01", 47.39765, 8.54143),  # main: 1.3M samples, ~366h cumulative parking
+    ("Depot_02", 47.36811, 8.49580),  # ~76h cumulative
+    ("Depot_03", 47.34471, 8.52975),  # ~76h cumulative
+    ("Depot_04", 47.35040, 8.56097),  # ~60h cumulative
+    ("Depot_05", 47.41370, 8.47749),  # ~45h cumulative
 ]
 
 
@@ -57,20 +62,21 @@ def _haversine_km(
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
     a = np.sin(dlat / 2) ** 2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2) ** 2
-    return 2 * R * np.arcsin(np.sqrt(a))
+    return np.asarray(2 * R * np.arcsin(np.sqrt(a)))
 
 
-def detect_depot_phases(
+def detect_depot_phases(  # noqa: PLR0912
     df: pl.DataFrame,
     *,
-    depot_radius_km: float = 0.3,
+    depot_radius_km: float = 0.15,
     min_dwell_seconds: float = 60.0,
     speed_col: str = "speed_smoothed_mps",
 ) -> tuple[pl.DataFrame, DepotDetectionResult]:
-    """Mark start- and end-of-mission depot phases.
+    """Mark depot phases anywhere in the mission (start, mid, or end).
 
-    Adds a boolean ``in_depot`` column to ``df`` and returns a
-    :class:`DepotDetectionResult` summary.
+    Per-sample check: in depot polygon AND speed < 3 m/s. Sustained presence
+    of >= ``min_dwell_seconds`` is required to count, so passing through a
+    depot at full speed does not trigger.
     """
     n = df.height
     in_depot = np.zeros(n, dtype=bool)
@@ -89,45 +95,74 @@ def detect_depot_phases(
     )
     v = df[speed_col].to_numpy().astype(float) if speed_col in df.columns else np.zeros(n)
 
-    detected_start = _detect_endpoint_depot(
-        lat, lon, v, t, depot_radius_km, min_dwell_seconds, "start"
-    )
-    detected_end = _detect_endpoint_depot(lat, lon, v, t, depot_radius_km, min_dwell_seconds, "end")
+    # Per-sample distance to NEAREST known depot
+    nearest_dist_km = np.full(n, np.inf)
+    nearest_depot_idx = np.full(n, -1, dtype=int)
+    for di, (_, depot_lat_deg, depot_lon_deg) in enumerate(KNOWN_DEPOTS_DEG):
+        d_lat_rad = np.deg2rad(depot_lat_deg)
+        d_lon_rad = np.deg2rad(depot_lon_deg)
+        d_km = _haversine_km(lat, lon, d_lat_rad, d_lon_rad)
+        closer = d_km < nearest_dist_km
+        nearest_dist_km[closer] = d_km[closer]
+        nearest_depot_idx[closer] = di
 
+    # Candidate samples: in-radius, slow-moving, GPS-valid
+    cand = np.isfinite(nearest_dist_km) & (nearest_dist_km <= depot_radius_km) & (v < 3.0)
+
+    # Sustained-presence filter: keep only contiguous runs of >= min_dwell_seconds
+    if cand.any():
+        i = 0
+        while i < n:
+            if cand[i]:
+                j = i
+                while j < n and cand[j]:
+                    j += 1
+                duration = t[j - 1] - t[i] if j > i else 0
+                if duration >= min_dwell_seconds:
+                    in_depot[i:j] = True
+                i = j
+            else:
+                i += 1
+
+    # Identify start/end depot names if applicable
+    detected_start = None
+    detected_end = None
+    if in_depot[0] and nearest_depot_idx[0] >= 0:
+        detected_start = KNOWN_DEPOTS_DEG[nearest_depot_idx[0]][0]
+    if in_depot[-1] and nearest_depot_idx[-1] >= 0:
+        detected_end = KNOWN_DEPOTS_DEG[nearest_depot_idx[-1]][0]
+
+    # Count contiguous start/end blocks for backward-compat with QC reporting
     n_start = 0
-    n_end = 0
-
-    if detected_start is not None:
-        # Mark consecutive samples from start that remain inside the depot polygon.
-        _, depot_lat_rad, depot_lon_rad = detected_start
-        d_km = _haversine_km(lat, lon, depot_lat_rad, depot_lon_rad)
+    if in_depot[0]:
         for i in range(n):
-            if np.isfinite(d_km[i]) and d_km[i] <= depot_radius_km and v[i] < 3.0:
-                in_depot[i] = True
+            if in_depot[i]:
                 n_start += 1
             else:
                 break
-
-    if detected_end is not None:
-        _depot_name, depot_lat_rad, depot_lon_rad = detected_end
-        d_km = _haversine_km(lat, lon, depot_lat_rad, depot_lon_rad)
+    n_end = 0
+    if in_depot[-1]:
         for i in range(n - 1, -1, -1):
-            if np.isfinite(d_km[i]) and d_km[i] <= depot_radius_km and v[i] < 3.0:
-                in_depot[i] = True
+            if in_depot[i]:
                 n_end += 1
             else:
                 break
 
-    if n_start or n_end:
-        logger.debug("Depot trim: {} samples at start, {} at end", n_start, n_end)
+    if in_depot.any():
+        logger.debug(
+            "Depot phases: {} samples total ({} at start, {} at end)",
+            int(in_depot.sum()),
+            n_start,
+            n_end,
+        )
 
     return (
         df.with_columns(pl.Series("in_depot", in_depot)),
         DepotDetectionResult(
             n_rows_start_depot=n_start,
             n_rows_end_depot=n_end,
-            detected_depot_at_start=detected_start[0] if detected_start else None,
-            detected_depot_at_end=detected_end[0] if detected_end else None,
+            detected_depot_at_start=detected_start,
+            detected_depot_at_end=detected_end,
         ),
     )
 
