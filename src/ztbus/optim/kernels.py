@@ -179,9 +179,62 @@ forward_jit = jax.jit(forward, static_argnames=())
 #     theta_batch.shape == (num_candidates, 7)
 #     forward_vmap(theta_batch, **kwargs).shape == (num_candidates, n_samples)
 #
-forward_vmap = jax.vmap(forward, in_axes=(0,), out_axes=0)
-forward_vmap_jit = jax.jit(forward_vmap)
+# vmap over the parameter axis only — the data is the same for every candidate.
+# in_axes maps:
+#   theta              → axis 0  (different per candidate)
+#   speed_mps          → None    (same data for all candidates)
+#   acceleration_mps2  → None
+#   mass_kg            → None
+#   grade              → None
+#   temperature_K      → None
+def _forward_for_vmap(
+    theta: jnp.ndarray,
+    speed_mps: jnp.ndarray,
+    acceleration_mps2: jnp.ndarray,
+    mass_kg: jnp.ndarray,
+    grade: jnp.ndarray,
+    temperature_K: jnp.ndarray,
+) -> jnp.ndarray:
+    """Positional-args adapter so jax.vmap can map only over theta."""
+    return forward(
+        theta,
+        speed_mps=speed_mps,
+        acceleration_mps2=acceleration_mps2,
+        mass_kg=mass_kg,
+        grade=grade,
+        temperature_K=temperature_K,
+    )
 
+
+# vmap maps axis 0 of theta; None means "broadcast (don't map) for this argument"
+forward_vmap_positional = jax.vmap(
+    _forward_for_vmap,
+    in_axes=(0, None, None, None, None, None),
+    out_axes=0,
+)
+
+
+def forward_vmap(
+    theta_batch: jnp.ndarray,
+    *,
+    speed_mps: jnp.ndarray,
+    acceleration_mps2: jnp.ndarray,
+    mass_kg: jnp.ndarray,
+    grade: jnp.ndarray,
+    temperature_K: jnp.ndarray,
+) -> jnp.ndarray:
+    """vmap forward over a batch of parameter vectors. Same kwargs as ``forward``."""
+    return forward_vmap_positional(
+        theta_batch,
+        speed_mps,
+        acceleration_mps2,
+        mass_kg,
+        grade,
+        temperature_K,
+    )
+
+
+forward_vmap_jit = jax.jit(forward_vmap)
 
 __all__ = [
     "G_M_PER_S2",
