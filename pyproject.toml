@@ -117,11 +117,15 @@ ignore = [
 "src/ztbus/cleaning/*"  = ["N802", "N803", "N806", "N815"]
 "src/ztbus/routes/*"    = ["N802", "N803", "N806", "N815"]
 "src/ztbus/qc/*"        = ["N802", "N803", "N806", "N815"]
+"src/ztbus/optim/*"     = ["N802", "N803", "N806", "N815"]
+"dump/scripts/*"        = ["N802", "N803", "N806", "N815"]
 # CLI uses the standard Typer pattern (typer.Option in defaults) and lazy
 # imports for fast --help responsiveness. Both are idiomatic, not bugs.
 "src/ztbus/cli.py"      = ["B008", "PLC0415"]
 "scripts/*"             = ["PLC0415"]
-"tests/*"               = ["PLR2004", "S101", "N806", "N803", "PLC0415"]
+# E402 added so that jax.config.update(...) can precede module imports,
+# which JAX requires for things like enable_x64 / platform selection.
+"tests/*"               = ["PLR2004", "S101", "N806", "N803", "PLC0415", "E402"]
 "notebooks/*"           = ["E402", "F401"]
 
 [tool.ruff.format]
