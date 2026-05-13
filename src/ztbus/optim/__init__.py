@@ -20,8 +20,8 @@ from ztbus.optim.kernels import (
 )
 
 __all__ = [
-    "PARAM_NAMES",
     "NUM_PARAMS",
+    "PARAM_NAMES",
     "forward",
     "forward_jit",
     "forward_vmap",
