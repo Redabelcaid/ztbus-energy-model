@@ -85,6 +85,11 @@ G_M_PER_S2: Final[float] = 9.81
 RHO_AIR_KG_PER_M3: Final[float] = 1.225
 T_COMFORT_K: Final[float] = 294.15  # = 21 °C
 
+# Regen kill-switch threshold (Hjelkrem 2021, citing Asamer 2016): below this
+# speed, the motor's back-EMF is insufficient and regen is mechanically
+# unavailable. 15 km/h = 4.1667 m/s.
+MIN_REGEN_SPEED_MPS: Final[float] = 15.0 / 3.6
+
 
 # ---------------------------------------------------------------------------
 # Forward model
@@ -144,18 +149,23 @@ def forward(
     P_mech = F_total * speed_mps
 
     # ---- Propulsion / recuperation split ----------------------------------
-    # Hjelkrem's branching:
-    #   P_elec = P_mech / eta_prop      if P_mech >= 0  (traction)
-    #          = P_mech * eta_recup     if P_mech <  0  (regen)
+    # Hjelkrem's branching with the min-speed regen kill-switch:
+    #   P_elec = P_mech / eta_prop                       if P_mech >= 0  (traction)
+    #          = P_mech * eta_recup                      if P_mech <  0  AND v >= 15 km/h
+    #          = 0                                       if P_mech <  0  AND v <  15 km/h
+    #
+    # The third case represents friction braking: kinetic energy is dissipated as
+    # heat, with no electrical effect. HVAC and P_aux continue regardless.
     #
     # Extension hook: when supervisor confirms grid-aware regen split, replace
     # ``eta_recup`` here with
     #     jnp.where(grid_available, eta_recup_grid, eta_recup_battery)
     # and the function signature gains ``grid_available`` as an input.
+    regen_active = (P_mech < 0.0) & (speed_mps >= MIN_REGEN_SPEED_MPS)
     P_elec = jnp.where(
         P_mech >= 0.0,
         P_mech / eta_prop,
-        P_mech * eta_recup,
+        jnp.where(regen_active, P_mech * eta_recup, 0.0),
     )
 
     # ---- HVAC (linear in |ΔT|) -------------------------------------------
@@ -238,6 +248,7 @@ forward_vmap_jit = jax.jit(forward_vmap)
 
 __all__ = [
     "G_M_PER_S2",
+    "MIN_REGEN_SPEED_MPS",
     "NUM_PARAMS",
     "PARAM_NAMES",
     "RHO_AIR_KG_PER_M3",

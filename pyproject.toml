@@ -119,8 +119,8 @@ ignore = [
 "src/ztbus/cleaning/*"  = ["N802", "N803", "N806", "N815"]
 "src/ztbus/routes/*"    = ["N802", "N803", "N806", "N815"]
 "src/ztbus/qc/*"        = ["N802", "N803", "N806", "N815"]
-"src/ztbus/optim/*"     = ["N802", "N803", "N806", "N815"]
-"dump/scripts/*"        = ["N802", "N803", "N806", "N815"]
+"src/ztbus/optim/*"     = ["N802", "N803", "N806", "N815", "PLR0915"]
+"dump/scripts/*"        = ["N802", "N803", "N806", "N815", "E402"]
 # CLI uses the standard Typer pattern (typer.Option in defaults) and lazy
 # imports for fast --help responsiveness. Both are idiomatic, not bugs.
 "src/ztbus/cli.py"      = ["B008", "PLC0415"]

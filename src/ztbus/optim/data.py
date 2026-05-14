@@ -186,6 +186,52 @@ def _discover_parquet_paths(
     return sorted(paths)
 
 
+def _add_windowed_grade(
+    lf: pl.LazyFrame,
+    *,
+    half_window_samples: int = 5,
+    min_ds_m: float = 10.0,
+    partition_col: str | None = "__mission_path__",
+) -> pl.LazyFrame:
+    """Replace ``grade`` with a windowed dh/ds computation.
+
+    The original cleaning pipeline computes ``grade`` as a naive per-sample
+    finite difference, which blows up at low speed (`02_grade_diagnostic.png`
+    shows spikes to 15{,}500 %). This helper recomputes grade over a sliding
+    window of ``2 * half_window_samples + 1`` samples (default ±5 = 11 s at 1 Hz),
+    and only emits a value where the cumulative travelled distance over the
+    window is at least ``min_ds_m`` metres. Otherwise grade is null and the
+    sample is dropped by the loader's null filter.
+
+    The ``shift()`` operations are constrained to operate strictly within each
+    mission (using ``over(partition_col)``) so we never leak altitude / distance
+    values across mission boundaries when scanning a multi-file LazyFrame.
+    The partition column is set by the caller; see ``load_corpus`` for how the
+    ``__mission_path__`` column is injected.
+
+    This is a temporary inline fix; once validated it should be promoted to
+    ``cleaning/grade.py`` and the cleaning pipeline re-run.
+    """
+    w = half_window_samples
+    h = pl.col("altitude_smoothed_m")
+    s = pl.col("distance_m")
+    if partition_col is not None:
+        h_diff = h.shift(-w).over(partition_col) - h.shift(w).over(partition_col)
+        s_diff = s.shift(-w).over(partition_col) - s.shift(w).over(partition_col)
+    else:
+        h_diff = h.shift(-w) - h.shift(w)
+        s_diff = s.shift(-w) - s.shift(w)
+    return (
+        lf.with_columns(h_diff_=h_diff, s_diff_=s_diff)
+        .with_columns(
+            grade=pl.when(pl.col("s_diff_") >= min_ds_m)
+            .then(pl.col("h_diff_") / pl.col("s_diff_"))
+            .otherwise(None),
+        )
+        .drop(["h_diff_", "s_diff_"])
+    )
+
+
 def _detect_temperature_unit(lf: pl.LazyFrame) -> str:
     """Return 'kelvin' or 'celsius' by sniffing the value range.
 
@@ -214,6 +260,9 @@ def load_corpus(
     speed_threshold_mps: float = 0.5,
     require_clean_flags: bool = True,
     require_gnss_course_valid: bool = False,
+    recompute_grade: bool = True,
+    grade_half_window_samples: int = 5,
+    grade_min_ds_m: float = 10.0,
     subsample: int | None = None,
     subsample_seed: int = 0,
     dtype: jnp.dtype = jnp.float64,
@@ -295,8 +344,15 @@ def load_corpus(
             f"(bus_ids={bus_ids}, year_months={year_months})"
         )
 
-    # Scan all paths as one LazyFrame
-    lf = pl.scan_parquet([str(p) for p in paths])
+    # Scan each parquet separately and attach a __mission_path__ column so
+    # downstream per-mission window operations don't leak across files.
+    per_file_frames = [
+        pl.scan_parquet(str(p)).with_columns(
+            __mission_path__=pl.lit(str(p)),
+        )
+        for p in paths
+    ]
+    lf = pl.concat(per_file_frames, how="vertical_relaxed")
 
     # ---- Row count BEFORE any filter -----------------------------------
     audit.n_samples_raw = lf.select(pl.len()).collect().item()
@@ -312,6 +368,19 @@ def load_corpus(
             pl.col("temperature_ambient").alias("temperature_K_internal"),
         )
     logger.info("Detected temperature unit: %s", temp_unit)
+
+    # ---- Optionally recompute grade with windowed dh/ds -----------------
+    if recompute_grade:
+        lf = _add_windowed_grade(
+            lf,
+            half_window_samples=grade_half_window_samples,
+            min_ds_m=grade_min_ds_m,
+        )
+        logger.info(
+            "Recomputed grade with windowed dh/ds (half_window=%d, min_ds=%.1f m)",
+            grade_half_window_samples,
+            grade_min_ds_m,
+        )
 
     # ---- Apply filters (each step audits the row count drop) ------------
     def _count_and_filter(lf_in: pl.LazyFrame, predicate: pl.Expr, label: str) -> pl.LazyFrame:

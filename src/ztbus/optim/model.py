@@ -120,7 +120,7 @@ _A_HI: float = 9.5
 
 # Drag coefficient
 _CD_LO: float = 0.50
-_CD_HI: float = 0.85
+_CD_HI: float = 1.10
 
 # Rolling resistance
 _CRR_LO: float = 0.005
@@ -131,14 +131,14 @@ _ETA_PROP_LO: float = 0.70
 _ETA_PROP_HI: float = 0.95
 
 # Recuperation efficiency
-_ETA_RECUP_LO: float = 0.40
-_ETA_RECUP_HI: float = 0.85
+_ETA_RECUP_LO: float = 0.30
+_ETA_RECUP_HI: float = 0.95
 
 # HVAC coefficient
 _C_HVAC_PRIOR_SCALE: float = 1.0  # HalfNormal scale [kW/K]
 
 # Auxiliary power
-_P_AUX_LO_KW: float = 1.0
+_P_AUX_LO_KW: float = 0.1
 _P_AUX_HI_KW: float = 30.0
 
 # Noise model
