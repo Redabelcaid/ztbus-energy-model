@@ -104,7 +104,9 @@ def first_existing_column(df: pd.DataFrame, candidates: list[str]) -> str | None
     return None
 
 
-def numeric_column(df: pd.DataFrame, candidates: list[str], default: float | None = None) -> pd.Series:
+def numeric_column(
+    df: pd.DataFrame, candidates: list[str], default: float | None = None
+) -> pd.Series:
     column = first_existing_column(df, candidates)
     if column is None:
         if default is None:
@@ -223,10 +225,7 @@ def bounds_arrays() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def theta_to_params(theta: np.ndarray) -> dict[str, float]:
-    params = {
-        spec["name"]: float(theta[index])
-        for index, spec in enumerate(PARAMETER_SPECS)
-    }
+    params = {spec["name"]: float(theta[index]) for index, spec in enumerate(PARAMETER_SPECS)}
     params["A_front"] = A_FRONT
     params["rho_air"] = RHO_AIR
     params["g"] = G
@@ -301,7 +300,7 @@ def predict_arrays(df: pd.DataFrame, theta: np.ndarray) -> dict[str, np.ndarray]
     slope_angle = np.arctan(grade)
 
     F_roll = mass * params["g"] * params["Crr"] * np.cos(slope_angle)
-    F_aero = 0.5 * params["rho_air"] * v ** 2 * params["A_front"] * params["Cd"]
+    F_aero = 0.5 * params["rho_air"] * v**2 * params["A_front"] * params["Cd"]
     F_inertia = mass * a
     F_grade = mass * params["g"] * np.sin(slope_angle)
     F_total = F_roll + F_aero + F_inertia + F_grade
@@ -325,14 +324,18 @@ def predict_arrays(df: pd.DataFrame, theta: np.ndarray) -> dict[str, np.ndarray]
 
 
 def file_loss(
-        theta: np.ndarray,
-        file_path: str,
-        input_root: str,
-        power_weight: float,
-        energy_weight: float,
-        verbose: bool = False,
+    theta: np.ndarray,
+    file_path: str,
+    input_root: str,
+    power_weight: float,
+    energy_weight: float,
+    verbose: bool = False,
 ) -> tuple[float, int]:
-    source_file = os.path.relpath(file_path, input_root) if os.path.isdir(input_root) else os.path.basename(file_path)
+    source_file = (
+        os.path.relpath(file_path, input_root)
+        if os.path.isdir(input_root)
+        else os.path.basename(file_path)
+    )
     try:
         raw = read_input_file(file_path)
         df = prepare_model_df(raw, source_file)
@@ -363,15 +366,21 @@ def file_loss(
 
 
 def month_group_key(file_path: str, input_root: str) -> str:
-    rel_path = os.path.relpath(file_path, input_root) if os.path.isdir(input_root) else os.path.basename(file_path)
+    rel_path = (
+        os.path.relpath(file_path, input_root)
+        if os.path.isdir(input_root)
+        else os.path.basename(file_path)
+    )
     parts = rel_path.split(os.sep)
     for index, part in enumerate(parts):
         if part.startswith("month="):
-            return os.path.join(*parts[:index + 1])
+            return os.path.join(*parts[: index + 1])
     return os.path.dirname(rel_path) or "."
 
 
-def make_balanced_month_chunks(file_paths: list[str], input_root: str, workers: int) -> list[list[str]]:
+def make_balanced_month_chunks(
+    file_paths: list[str], input_root: str, workers: int
+) -> list[list[str]]:
     grouped: dict[str, list[str]] = {}
     for file_path in file_paths:
         grouped.setdefault(month_group_key(file_path, input_root), []).append(file_path)
@@ -393,26 +402,30 @@ def chunk_loss(args: tuple[np.ndarray, list[str], str, float, float]) -> tuple[f
     total_loss = 0.0
     total_count = 0
     for file_path in file_chunk:
-        loss_sum, count = file_loss(theta, file_path, input_root, power_weight, energy_weight, verbose=False)
+        loss_sum, count = file_loss(
+            theta, file_path, input_root, power_weight, energy_weight, verbose=False
+        )
         total_loss += loss_sum
         total_count += count
     return total_loss, total_count
 
 
 def objective_from_theta(
-        theta: np.ndarray,
-        file_paths: list[str],
-        input_root: str,
-        power_weight: float,
-        energy_weight: float,
-        pool=None,
-        file_chunks: list[list[str]] | None = None,
+    theta: np.ndarray,
+    file_paths: list[str],
+    input_root: str,
+    power_weight: float,
+    energy_weight: float,
+    pool=None,
+    file_chunks: list[list[str]] | None = None,
 ) -> float:
     total_loss = 0.0
     total_count = 0
     if pool is None or file_chunks is None:
         for file_path in file_paths:
-            loss_sum, count = file_loss(theta, file_path, input_root, power_weight, energy_weight, verbose=True)
+            loss_sum, count = file_loss(
+                theta, file_path, input_root, power_weight, energy_weight, verbose=True
+            )
             total_loss += loss_sum
             total_count += count
     else:
@@ -429,16 +442,16 @@ def objective_from_theta(
 
 
 def bounded_cmaes_optimize_streaming(
-        file_paths: list[str],
-        input_root: str,
-        iterations: int,
-        population_size: int | None,
-        sigma: float,
-        seed: int,
-        power_weight: float,
-        energy_weight: float,
-        workers: int,
-        logger: TeeLogger | None,
+    file_paths: list[str],
+    input_root: str,
+    iterations: int,
+    population_size: int | None,
+    sigma: float,
+    seed: int,
+    power_weight: float,
+    energy_weight: float,
+    workers: int,
+    logger: TeeLogger | None,
 ) -> tuple[np.ndarray, float, pd.DataFrame]:
     rng = np.random.default_rng(seed)
     lower, upper, default = bounds_arrays()
@@ -452,7 +465,7 @@ def bounded_cmaes_optimize_streaming(
 
     weights = np.log(mu + 0.5) - np.log(np.arange(1, mu + 1))
     weights = weights / np.sum(weights)
-    mu_eff = 1.0 / np.sum(weights ** 2)
+    mu_eff = 1.0 / np.sum(weights**2)
 
     c_sigma = (mu_eff + 2.0) / (dim + mu_eff + 5.0)
     d_sigma = 1.0 + 2.0 * max(0.0, np.sqrt((mu_eff - 1.0) / (dim + 1.0)) - 1.0) + c_sigma
@@ -462,7 +475,7 @@ def bounded_cmaes_optimize_streaming(
         1.0 - c1,
         2.0 * (mu_eff - 2.0 + 1.0 / mu_eff) / ((dim + 2.0) ** 2 + mu_eff),
     )
-    chi_n = np.sqrt(dim) * (1.0 - 1.0 / (4.0 * dim) + 1.0 / (21.0 * dim ** 2))
+    chi_n = np.sqrt(dim) * (1.0 - 1.0 / (4.0 * dim) + 1.0 / (21.0 * dim**2))
 
     mean_scaled = (default - lower) / span
     sigma_scaled = float(sigma)
@@ -477,7 +490,9 @@ def bounded_cmaes_optimize_streaming(
     best_theta = np.clip(default.copy(), lower, upper)
     history = []
     log_print = logger.print if logger is not None else print
-    log_print(f"Using {workers} worker process(es) across {len(file_chunks)} balanced month/file chunk(s).")
+    log_print(
+        f"Using {workers} worker process(es) across {len(file_chunks)} balanced month/file chunk(s)."
+    )
 
     try:
         best_loss = objective_from_theta(
@@ -495,7 +510,9 @@ def bounded_cmaes_optimize_streaming(
             eigenvalues, eigenvectors = np.linalg.eigh(covariance)
             eigenvalues = np.maximum(eigenvalues, 1e-12)
             sqrt_covariance = eigenvectors @ np.diag(np.sqrt(eigenvalues)) @ eigenvectors.T
-            inv_sqrt_covariance = eigenvectors @ np.diag(1.0 / np.sqrt(eigenvalues)) @ eigenvectors.T
+            inv_sqrt_covariance = (
+                eigenvectors @ np.diag(1.0 / np.sqrt(eigenvalues)) @ eigenvectors.T
+            )
 
             z_samples = rng.normal(size=(population_size, dim))
             y_samples = z_samples @ sqrt_covariance.T
@@ -538,7 +555,10 @@ def bounded_cmaes_optimize_streaming(
             )
             norm_p_sigma = np.linalg.norm(p_sigma)
             h_sigma_threshold = (1.4 + 2.0 / (dim + 1.0)) * chi_n
-            h_sigma = float(norm_p_sigma / np.sqrt(1.0 - (1.0 - c_sigma) ** (2.0 * iteration)) < h_sigma_threshold)
+            h_sigma = float(
+                norm_p_sigma / np.sqrt(1.0 - (1.0 - c_sigma) ** (2.0 * iteration))
+                < h_sigma_threshold
+            )
 
             p_c = (1.0 - c_c) * p_c + h_sigma * np.sqrt(c_c * (2.0 - c_c) * mu_eff) * y_w
             rank_mu = np.zeros((dim, dim))
@@ -580,7 +600,11 @@ def bounded_cmaes_optimize_streaming(
 def evaluate_files(theta: np.ndarray, file_paths: list[str], input_root: str) -> pd.DataFrame:
     rows = []
     for file_path in file_paths:
-        source_file = os.path.relpath(file_path, input_root) if os.path.isdir(input_root) else os.path.basename(file_path)
+        source_file = (
+            os.path.relpath(file_path, input_root)
+            if os.path.isdir(input_root)
+            else os.path.basename(file_path)
+        )
         try:
             raw = read_input_file(file_path)
             df = prepare_model_df(raw, source_file)
@@ -619,7 +643,9 @@ def evaluate_files(theta: np.ndarray, file_paths: list[str], input_root: str) ->
                     "measured_energy_kWh_from_power": measured_energy,
                     "predicted_energy_kWh_from_power": predicted_energy,
                     "trip_energy_error_kWh": predicted_energy - measured_energy,
-                    "trip_energy_error_pct": 100.0 * (predicted_energy - measured_energy) / max(abs(measured_energy), 1e-6),
+                    "trip_energy_error_pct": 100.0
+                    * (predicted_energy - measured_energy)
+                    / max(abs(measured_energy), 1e-6),
                     "sample_mse_kW2": mse_kW2,
                     "sample_rmse_kW": float(np.sqrt(mse_kW2)),
                 }
@@ -628,16 +654,34 @@ def evaluate_files(theta: np.ndarray, file_paths: list[str], input_root: str) ->
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Fit one global bus energy parameter set with parallel streaming CMA-ES.")
-    parser.add_argument("data_path", help="Top-level CSV/parquet dataset directory or one input file.")
+    parser = argparse.ArgumentParser(
+        description="Fit one global bus energy parameter set with parallel streaming CMA-ES."
+    )
+    parser.add_argument(
+        "data_path", help="Top-level CSV/parquet dataset directory or one input file."
+    )
     parser.add_argument("--iterations", type=int, default=120, help="Number of CMA-ES iterations.")
-    parser.add_argument("--population-size", type=int, default=8, help="Number of candidates per iteration.")
-    parser.add_argument("--sigma", type=float, default=0.25, help="Initial CMA-ES step size in normalized bounds.")
+    parser.add_argument(
+        "--population-size", type=int, default=8, help="Number of candidates per iteration."
+    )
+    parser.add_argument(
+        "--sigma", type=float, default=0.25, help="Initial CMA-ES step size in normalized bounds."
+    )
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    parser.add_argument("--power-weight", type=float, default=0.65, help="Weight for sample power MSE in watts.")
-    parser.add_argument("--energy-weight", type=float, default=0.35, help="Weight for trip energy relative error.")
-    parser.add_argument("--workers", type=int, default=1, help="Worker processes for parallel month/file chunks.")
-    parser.add_argument("--output-dir", default=os.path.join("output", "cmaes_streaming_parallel"), help="Output directory.")
+    parser.add_argument(
+        "--power-weight", type=float, default=0.65, help="Weight for sample power MSE in watts."
+    )
+    parser.add_argument(
+        "--energy-weight", type=float, default=0.35, help="Weight for trip energy relative error."
+    )
+    parser.add_argument(
+        "--workers", type=int, default=1, help="Worker processes for parallel month/file chunks."
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=os.path.join("output", "cmaes_streaming_parallel"),
+        help="Output directory.",
+    )
     return parser.parse_args()
 
 
@@ -648,7 +692,9 @@ if __name__ == "__main__":
     with TeeLogger(os.path.join(args.output_dir, "printed_output.txt")) as logger:
         file_paths = list_input_files(args.data_path)
         logger.print(f"Discovered {len(file_paths)} input file(s).")
-        logger.print("Parallel streaming objective is enabled: each worker loads its assigned files one at a time.")
+        logger.print(
+            "Parallel streaming objective is enabled: each worker loads its assigned files one at a time."
+        )
 
         best_theta, best_objective, convergence_df = bounded_cmaes_optimize_streaming(
             file_paths=file_paths,
@@ -673,6 +719,12 @@ if __name__ == "__main__":
         logger.print("\nEvaluation summary:")
         logger.print(metrics_df.describe(include="all"))
 
-        parameter_table(best_theta).to_csv(os.path.join(args.output_dir, "cmaes_global_best_parameters.csv"), index=False)
-        convergence_df.to_csv(os.path.join(args.output_dir, "cmaes_global_convergence.csv"), index=False)
-        metrics_df.to_csv(os.path.join(args.output_dir, "cmaes_global_trip_metrics.csv"), index=False)
+        parameter_table(best_theta).to_csv(
+            os.path.join(args.output_dir, "cmaes_global_best_parameters.csv"), index=False
+        )
+        convergence_df.to_csv(
+            os.path.join(args.output_dir, "cmaes_global_convergence.csv"), index=False
+        )
+        metrics_df.to_csv(
+            os.path.join(args.output_dir, "cmaes_global_trip_metrics.csv"), index=False
+        )
