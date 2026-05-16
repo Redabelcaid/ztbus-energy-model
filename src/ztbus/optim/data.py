@@ -79,6 +79,7 @@ logger = logging.getLogger(__name__)
 _PARQUET_TO_JAX_INPUT: dict[str, str] = {
     "speed_smoothed_mps": "speed_mps",
     "traction_tractionForce": "F_traction_N",
+    "status_gridIsAvailable": "grid_available",
     "acceleration_mps2": "acceleration_mps2",
     "mass_kg": "mass_kg",
     "grade": "grade",

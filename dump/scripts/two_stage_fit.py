@@ -44,6 +44,15 @@ def main() -> None:
 
     if args.year_month == "ALL_2021":
         year_months = tuple(f"2021-{m:02d}" for m in range(1, 13))
+    elif args.year_month == "ALL":
+        # Full documented ZTBus range: May 2019 - Dec 2022
+        ym = []
+        for year in (2019, 2020, 2021, 2022):
+            for month in range(1, 13):
+                if year == 2019 and month < 5:
+                    continue
+                ym.append(f"{year}-{month:02d}")
+        year_months = tuple(ym)
     else:
         year_months = (args.year_month,)
 
