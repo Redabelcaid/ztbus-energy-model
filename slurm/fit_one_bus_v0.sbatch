@@ -40,7 +40,23 @@ module load system/CUDA || module load CUDA || echo "WARNING: no CUDA module loa
 module list 2>&1
 echo
 
+# === Force JAX onto GPU and ensure bundled CUDA libs are findable ===
+# JAX_PLATFORMS=cuda makes JAX raise (instead of silently fall back to CPU)
+# if the CUDA plugin can't initialize.
+export JAX_PLATFORMS=cuda
+
+# Point LD_LIBRARY_PATH at the pip-installed CUDA libs in our uv venv. The
+# nvidia-*-cu12 wheels install .so files under site-packages/nvidia/<lib>/lib/.
+VENV_SITE=$(uv run python -c 'import site; print(site.getsitepackages()[0])')
+NVIDIA_LIBS=$(find "$VENV_SITE/nvidia" -name "lib" -type d 2>/dev/null | tr '\n' ':')
+export LD_LIBRARY_PATH="${NVIDIA_LIBS}${LD_LIBRARY_PATH:-}"
+echo "JAX_PLATFORMS=$JAX_PLATFORMS"
+echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" | head -c 400
+echo
+echo
+
 echo "=== GPU check ==="
+
 nvidia-smi || echo "WARNING: nvidia-smi not available"
 echo
 

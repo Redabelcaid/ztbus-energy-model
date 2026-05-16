@@ -43,8 +43,8 @@ dependencies = [
     "snakemake>=8.20",
     "snakemake-executor-plugin-slurm>=0.11",
     "scikit-learn>=1.8.0",
-    "jax[cuda12]>=0.10.0",
     "numpyro>=0.21.0",
+    "jax[cuda12]>=0.10.0",
 ]
 
 [project.optional-dependencies]

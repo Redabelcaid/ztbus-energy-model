@@ -114,12 +114,12 @@ if TYPE_CHECKING:
 
 # Frontal area
 _A_PRIOR_MEAN: float = 8.4
-_A_PRIOR_SD: float = 0.3
-_A_LO: float = 7.0
-_A_HI: float = 9.5
+_A_PRIOR_SD: float = 0.1
+_A_LO: float = 8.0
+_A_HI: float = 8.8
 
 # Drag coefficient
-_CD_LO: float = 0.50
+_CD_LO: float = 0.30
 _CD_HI: float = 1.10
 
 # Rolling resistance
@@ -137,9 +137,11 @@ _ETA_RECUP_HI: float = 0.95
 # HVAC coefficient
 _C_HVAC_PRIOR_SCALE: float = 1.0  # HalfNormal scale [kW/K]
 
-# Auxiliary power
-_P_AUX_LO_KW: float = 0.1
-_P_AUX_HI_KW: float = 30.0
+# Auxiliary power (informative prior — see module docstring for justification)
+_P_AUX_PRIOR_MEAN_KW: float = 4.0
+_P_AUX_PRIOR_SD_KW: float = 1.0
+_P_AUX_LO_KW: float = 1.0
+_P_AUX_HI_KW: float = 10.0
 
 # Noise model
 _SIGMA_PRIOR_SCALE_W: float = 20_000.0  # HalfNormal scale on power-residual sigma in WATTS
@@ -186,7 +188,15 @@ def ztbus_model(
     eta_prop = numpyro.sample("eta_prop", dist.Uniform(_ETA_PROP_LO, _ETA_PROP_HI))
     eta_recup = numpyro.sample("eta_recup", dist.Uniform(_ETA_RECUP_LO, _ETA_RECUP_HI))
     c_HVAC = numpyro.sample("c_HVAC", dist.HalfNormal(_C_HVAC_PRIOR_SCALE))
-    P_aux = numpyro.sample("P_aux", dist.Uniform(_P_AUX_LO_KW, _P_AUX_HI_KW))
+    P_aux = numpyro.sample(
+        "P_aux",
+        dist.TruncatedNormal(
+            _P_AUX_PRIOR_MEAN_KW,
+            _P_AUX_PRIOR_SD_KW,
+            low=_P_AUX_LO_KW,
+            high=_P_AUX_HI_KW,
+        ),
+    )
 
     # Observation noise sigma in WATTS. HalfNormal keeps it positive.
     sigma = numpyro.sample("sigma_W", dist.HalfNormal(_SIGMA_PRIOR_SCALE_W))

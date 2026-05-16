@@ -78,6 +78,7 @@ logger = logging.getLogger(__name__)
 # Parquet column → JAX dict key. Order matters for downstream consistency.
 _PARQUET_TO_JAX_INPUT: dict[str, str] = {
     "speed_smoothed_mps": "speed_mps",
+    "traction_tractionForce": "F_traction_N",
     "acceleration_mps2": "acceleration_mps2",
     "mass_kg": "mass_kg",
     "grade": "grade",

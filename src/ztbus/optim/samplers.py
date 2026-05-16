@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import jax
 import jax.numpy as jnp
@@ -276,3 +276,70 @@ def posterior_summary(samples: dict[str, jnp.ndarray]) -> pl.DataFrame:
 
 
 __all__ = ["FitResult", "nuts_fit", "posterior_summary", "posterior_to_dataframe"]
+
+
+def nuts_fit_generic(
+    *,
+    model_fn: Any,
+    model_args: tuple[Any, ...],
+    observed_kwarg: str,
+    observed: Any,
+    num_warmup: int = 300,
+    num_samples: int = 300,
+    num_chains: int = 2,
+    chain_method: str = "sequential",
+    progress_bar: bool = True,
+    rng_seed: int = 0,
+    target_accept_prob: float = 0.85,
+) -> Any:
+    """Generic NUTS fit for any (model_fn, observed_kwarg) pair.
+
+    Reuses sampler machinery for Stage 1 (model_traction / observed_F_N)
+    and Stage 2 (model_electrical / observed_P_W) without duplication.
+    """
+    import time
+    from dataclasses import dataclass
+
+    import jax.random as jrandom
+    import numpy as np
+    import numpyro
+    from numpyro.infer import MCMC, NUTS
+
+    kernel = NUTS(model_fn, target_accept_prob=target_accept_prob)
+    mcmc = MCMC(
+        kernel,
+        num_warmup=num_warmup,
+        num_samples=num_samples,
+        num_chains=num_chains,
+        chain_method=chain_method,
+        progress_bar=progress_bar,
+    )
+    t0 = time.time()
+    mcmc.run(jrandom.PRNGKey(rng_seed), *model_args, **{observed_kwarg: observed})
+    wall = time.time() - t0
+
+    samples = mcmc.get_samples(group_by_chain=True)
+
+    summary_stats = numpyro.diagnostics.summary(samples, group_by_chain=True)
+    r_hat_max = float(max(stat["r_hat"] for stat in summary_stats.values()))
+    ess_bulk_min = float(min(stat["n_eff"] for stat in summary_stats.values()))
+    try:
+        extras = mcmc.get_extra_fields(group_by_chain=True)
+        num_divergent = int(np.asarray(extras.get("diverging", np.array(0))).sum())
+    except Exception:
+        num_divergent = 0
+
+    @dataclass
+    class _Result:
+        samples: dict[str, Any]
+        diagnostics: dict[str, Any]
+
+    return _Result(
+        samples=samples,
+        diagnostics={
+            "r_hat_max": r_hat_max,
+            "ess_bulk_min": ess_bulk_min,
+            "num_divergent": num_divergent,
+            "wall_seconds": wall,
+        },
+    )
